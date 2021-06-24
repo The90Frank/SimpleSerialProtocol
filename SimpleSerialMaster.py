@@ -7,7 +7,6 @@ import serial
 import pyinputplus as pyip
 
 def checkCommand(c):  
-    print("Command: ", end = '')
     if bool(re.match(r'(R|W|r|w)', c)) == False:
         raise Exception('Invalid command [R,r,W,w]')
     return c
@@ -47,9 +46,9 @@ def main():
     ser = serial.Serial('/dev/ttyACM0', 9600, timeout=5)
     while True:
         
-        command = pyip.inputCustom(checkCommand)
-        number = int(pyip.inputNum("PinNumber: ", min=0, lessThan=20))
-        value = int(pyip.inputNum("PinValue: ", min=0, lessThan=256))
+        command = pyip.inputCustom(checkCommand, prompt="Command: ")
+        number = int(pyip.inputNum(prompt="PinNumber: ", min=0, lessThan=20))
+        value = int(pyip.inputNum(prompt="PinValue: ", min=0, lessThan=256))
 
         print('invio: "'+command+','+str(number)+','+str(value)+'"')
         m = convertToMessage(command,number,value)
