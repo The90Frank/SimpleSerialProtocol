@@ -1,0 +1,6 @@
+# Master-side dependency. The Slave needs only the Arduino IDE.
+#
+# Verified on Python 3.14.6 / Windows: pyserial 3.5. The CLI is argparse out of
+# the standard library, so this one line is the whole list.
+
+pyserial>=3.5
