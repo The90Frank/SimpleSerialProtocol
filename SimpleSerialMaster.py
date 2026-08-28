@@ -81,6 +81,10 @@ def buildParser():
                         metavar='SEC',
                         help='seconds to wait before the single retry, for a board'
                              ' that reset on open (default: %(default)s, 0 disables it)')
+    parser.add_argument('--dtr', action='store_true',
+                        help='assert DTR and RTS on open, for a USB bridge that will'
+                             ' not pass data without them; this resets any board that'
+                             ' wires those lines to RESET')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='also print both frames in hex')
 
@@ -162,22 +166,26 @@ def transact(ser, message, bootWait):
         reply = attempt(ser, message)
     return reply
 
-def openPort(port):
-    """Opens the port without ever asserting DTR or RTS.
+def openPort(port, assertLines=False):
+    """Opens the port, by default without ever asserting DTR or RTS.
 
-    On most Arduino boards both lines are wired to RESET, so a plain open()
-    reboots the slave. With one process per command that would wipe the
-    software PWM channels between two invocations, and a 'w' with the
-    frequency omitted would silently land on analogWrite. Holding the lines
-    low from before the open avoids the reset wherever the driver honours it;
-    the retry in transact() covers the boards where it does not.
+    On boards where those lines are wired to RESET - the classic Nano among
+    them - a plain open() reboots the slave. With one process per command that
+    would wipe the software PWM channels between two invocations, and a 'w'
+    with the frequency omitted would silently land on analogWrite. Holding the
+    lines low from before the open avoids the reset wherever the driver
+    honours it; the retry in transact() covers the boards where it does not.
+
+    The other kind of board exists too: a USB bridge that passes no data until
+    the host asserts the same lines, which makes the default here look like a
+    mute Slave. That is what assertLines is for.
     """
     ser = serial.Serial()
     ser.port = port
     ser.baudrate = BAUD_RATE
     ser.timeout = RESPONSE_TIMEOUT_S
-    ser.dtr = False
-    ser.rts = False
+    ser.dtr = assertLines
+    ser.rts = assertLines
 
     try:
         ser.open()
@@ -197,7 +205,7 @@ def main():
 
     message = convertToMessage(args.command, args.pin, value, freq)
 
-    ser = openPort(args.port)
+    ser = openPort(args.port, args.dtr)
     if args.verbose:
         print("sent:     " + message.hex(" "))
     try:

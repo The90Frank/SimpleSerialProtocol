@@ -106,6 +106,7 @@ SimpleSerialMaster.py [-p PORT] [--boot-wait SEC] [-v] COMMAND PIN [VALUE] [FREQ
 | `FREQ` | `w` only, and optional — see [PWM](#pwm) |
 | `-p`, `--port` | serial port of the Slave, `/dev/ttyACM0` if omitted |
 | `--boot-wait` | seconds to wait before the single retry, default 2, `0` disables it |
+| `--dtr` | assert DTR and RTS on open — **required on a Nano Every**, see below |
 | `-v`, `--verbose` | also print both frames in hex |
 
 The answer is one line on stdout, `pin,value,frequency` — for the call above:
@@ -133,6 +134,19 @@ python SimpleSerialMaster.py -p COM3 w 14 200
 ```
 
 `14,200,100Hz` means the channel survived the second open. `14,200,analogWrite` means the board reset, the Slave no longer has a channel on that pin, and any sequence that spans several calls has to name the frequency every time.
+
+### The board that needs the opposite
+
+Holding those lines low is right for a classic Nano and **wrong for a Nano Every**, whose USB side is a SAMD11 bridge that passes no data at all until the host asserts DTR. The Slave then looks mute: no answer to any command, on a board that was programmed over that very cable seconds earlier. `--dtr` is the whole fix.
+
+| Board | |
+|---|---|
+| Nano (classic) | default — lines held low, so opening the port does not reset the board |
+| Nano Every | `--dtr`, or the bridge forwards nothing |
+
+Two things make this one hard to see, and both are specific to the Every. Its upload goes over **UPDI** (`upload.protocol=jtag2updi` in the core's `boards.txt`), not over the serial port, so an upload that works proves the cable and the bridge but says **nothing** about whether the UART path does. And a sketch that spams `Serial.print` only exercises **TX**: the direction this protocol needs first is RX, and that is the one a mute bridge blocks.
+
+Worth ruling out early on that board, since it looks identical from outside: the 4809 runs on an internal oscillator whose 16-or-20 MHz choice lives in a fuse, and a mismatch against the core's `F_CPU` skews every baud rate by 25%. It is not usually the culprit — the Arduino core rewrites `fuse2` to 16 MHz on every upload and corrects the oscillator tolerance from `SIGROW.OSC16ERR5V` — and it fails differently anyway: garbled characters rather than silence.
 
 ## Dependencies
 
